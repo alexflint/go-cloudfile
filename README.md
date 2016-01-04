@@ -17,21 +17,21 @@ A consistent way to work with remote files.
 	}
 
 Use `cloudfile` to write code that can doesn't care whether its data comes from
-a local file or a cloud storage provider. All the information necessary to locate
-a file is specified as a URL string.
+local or cloud storage. All the information necessary to locate
+a file is specified as a string.
 
-For example, suppose you're writing a server that loads a data file at
-startup. In the first implementation you load the data from a file on
+For example, suppose you're writing a server that loads a data file. 
+In the first implementation you load the data from a file on
 the local filesystem:
 
     ./myserver --data /path/to/data
 
 Later you want to load the data from an S3 bucket. Typically this would
-require rewriting a bunch of code to load data using the AWS API, after which it
-would require further code changes to go back to loading a local data file.
+require rewriting a bunch of code to load data using the AWS API, after which you
+would no longer be able to load from a local file without changing the code back.
 
-Using `cloudfile`, you would simply specify and S3 URL and there would be no
-code changes necessary:
+Using `cloudfile`, you would simply pass in S3 URL and there would be no
+need for any code changes:
 
     ./myserver --data s3://my-bucket/path/to/data
 

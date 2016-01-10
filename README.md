@@ -1,36 +1,40 @@
 # cloudfile
 
-A consistent way to work with remote files.
+A consistent way to work with remote (and local) files.
 
-	func main() {
-		url := "s3://my-bucket/path/to/file"
-		// url := "http://example.com/path/to/file"
-		// url := "/path/to/file"
+```go
+func main() {
+	url := "s3://my-bucket/path/to/file"
+	// url := "http://example.com/path/to/file"
+	// url := "/path/to/file"
 
-		r, err := cloudfile.Open(url)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer r.Close()
-
-		...
+	r, err := cloudfile.Open(url)
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer r.Close()
+
+	...
+}
+```
 
 Use `cloudfile` to write code that can doesn't care whether its data comes from
-local or cloud storage. All the information necessary to locate
-a file is specified as a string.
+the local filesystem or a remote storage provider. All the information necessary
+to locate a file is specified as a URI string.
 
-For example, suppose you're writing a server that loads a data file. 
-In the first implementation you load the data from a file on
-the local filesystem:
+### Motivation
+
+Suppose you're writing a server that loads a data file. In the first version you
+just load the data from the local filesystem:
 
     ./myserver --data /path/to/data
 
 Later you want to load the data from an S3 bucket. Typically this would
-require rewriting a bunch of code to load data using the AWS API, after which you
-would no longer be able to load from a local file without changing the code back.
+require rewriting a bunch of code to load data using the AWS API rather than `os.Open`,
+after which you would no longer be able to load from a local file without changing
+the code back.
 
-Using `cloudfile`, you would simply pass in S3 URL and there would be no
+Using `cloudfile.Open`, you would simply pass in S3 URL and there would be no
 need for any code changes:
 
     ./myserver --data s3://my-bucket/path/to/data
@@ -43,31 +47,77 @@ need for any code changes:
 
 URLs look like `s3://BUCKET/KEY`
 
-Credentials can be specified in one of the following ways:
+Credentials can be specified by:
 
- 1. by setting the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
+ 1. setting the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
 
- 2. by creating `~/.aws/credentials` with the following contents:
+ 2. creating `~/.aws/credentials` with the following contents:
 
-     [default]
-     aws_access_key_id=YOUR_ACCESS_KEY
-	 aws_secret_access_key=YOUR_SECRET_KEY
+	```
+    [default]
+    aws_access_key_id=YOUR_ACCESS_KEY
+	aws_secret_access_key=YOUR_SECRET_KEY
+	```
 
- 3. by assigning to global variables:
+ 3. initializing the driver explicitly
 
-     import "github.com/alexflint/go-cloudfile/s3file"
+	```go
+	import (
+		"github.com/alexflint/go-cloudfile"
+		"github.com/alexflint/go-cloudfile/s3file"
+	)
 
-     ...
+	func main() {
+		cloudfile.Drivers["s3:"] = s3file.NewDriver("ACCESS_KEY", "SECRET_KEY", aws.USWest)
+		...
+	}
+	```
 
-     s3file.AccessKey = "YOUR_ACCESS_KEY"
-     s3file.SecretKey = "YOUR_SECRET_KEY"
+### HTTP and HTTPS
 
-### HTTP[S]
+Uses standard HTTP URLs: `https://example.com/path/to/resource`.
 
-Uses standard HTTP URLs: `https://example.com/path/to/resource`. The resource is fetched with a `GET` using the default HTTP client, `http.DefaultClient`. HTTP resources are read-only.
+The resource is fetched with a `GET` using the default HTTP client, `http.DefaultClient`. HTTP resources are read-only.
 
 ### Local paths
 
-Any path that doesn't begin with a known prefix (`s3:`, `http:`, `https:`, etc) is 
+Any path that does not have a known protocol prefix (`"s3:"`, `"http:"`, `"https:"`, etc) is 
 interpreted as a local path and behavior will be equivalent to `os.Open`, `ioutil.ReadFile`, 
 or `ioutil.WriteFile`.
+
+### Custom backends
+
+You can define your own backend by implementing `cloudfile.Driver`:
+
+```go
+type InMemoryDriver map[string][]byte
+
+func (d InMemoryDriver) Open(path string) (io.ReadCloser, error) {
+	return ioutil.NopCloser(bytes.NewBuffer(d[path])), nil
+}
+
+func (d InMemoryDriver) ReadFile(path string) ([]byte, error) {
+	return d[path], nil
+}
+
+func (d InMemoryDriver) WriteFile(path string, buf []byte) error {
+	d[path] = buf
+	return nil
+}
+```
+
+Register the driver with:
+```go
+cloudfile.Drivers["inmemory:"] = make(InMemoryDriver)
+```
+
+Then use it with:
+```go
+cloudfile.WriteFile("inmemory:foo", []byte("contents of file"))
+buf, err := cloudfile.ReadFile("inmemory:foo")
+if err != nil {
+	fmt.Println(err)
+	return
+}
+fmt.Println(string(buf))
+```

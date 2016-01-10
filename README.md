@@ -1,3 +1,7 @@
+[![GoDoc](https://godoc.org/github.com/alexflint/go-cloudfile?status.svg)](https://godoc.org/github.com/alexflint/go-cloudfile)
+[![Build Status](https://travis-ci.org/alexflint/go-cloudfile.svg?branch=master)](https://travis-ci.org/alexflint/go-cloudfile)
+[![Coverage Status](https://coveralls.io/repos/alexflint/go-cloudfile/badge.svg?branch=master&service=github)](https://coveralls.io/github/alexflint/go-cloudfile?branch=master)
+
 # cloudfile
 
 A consistent way to work with remote (and local) files.

@@ -13,11 +13,9 @@ import (
 )
 
 var (
-	AccessKey          string
-	SecretKey          string
-	Region             = aws.USWest
-	DefaultContentType string
-	DefaultPerm        s3.ACL
+	defaultRegion      = aws.USWest
+	defaultContentType string
+	defaultPerm        s3.ACL
 )
 
 var (
@@ -25,17 +23,15 @@ var (
 	ErrInvalidRegion = errors.New("invalid AWS region specified")
 )
 
-// DefaultRegion is the default AWS region for S3 paths
-
 // Check for an AWS_REGION environment variable during startup
 func init() {
-	if regionName := os.Getenv("AWS_REGION"); regionName != "" {
-		if region, found := aws.Regions[regionName]; found {
-			Region = region
-		} else {
-			log.Printf("Invalid AWS_REGION '%s'. Ignoring.")
-		}
-	}
+}
+
+// DriverOptions represents options for creating a driver
+type DriverOptions struct {
+	AccessKey string
+	SecretKey string
+	Region    aws.Region
 }
 
 // Driver implements cloudfile.Driver
@@ -44,16 +40,30 @@ type Driver struct {
 	Auth   aws.Auth
 }
 
+// NewDriverFromEnv creates a driver for S3 paths using credentials from environment variables
+func NewDriverFromEnv() (*Driver, error) {
+	region := defaultRegion
+	if regionName := os.Getenv("AWS_REGION"); regionName != "" {
+		if r, found := aws.Regions[regionName]; found {
+			region = r
+		} else {
+			log.Printf("Invalid AWS_REGION '%s'. Ignoring.")
+		}
+	}
+
+	return NewDriver("", "", region)
+}
+
 // NewDriver creates a driver for S3 paths
-func NewDriver() (*Driver, error) {
+func NewDriver(accessKey, secretKey string, region aws.Region) (*Driver, error) {
 	// Authenticate -- will fall back to ~/.aws then to environment variables
-	auth, err := aws.GetAuth(AccessKey, SecretKey)
+	auth, err := aws.GetAuth(accessKey, secretKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Driver{
-		Region: Region,
+		Region: region,
 		Auth:   auth,
 	}, nil
 }
@@ -100,5 +110,5 @@ func (d *Driver) WriteFile(url string, buf []byte) error {
 	if err != nil {
 		return err
 	}
-	return bucket.Put(path, buf, DefaultContentType, DefaultPerm)
+	return bucket.Put(path, buf, defaultContentType, defaultPerm)
 }
